@@ -67,3 +67,17 @@ Types of topologies:
 
 1. Automatic. When we leave up to mass transit to do the work of creating the underlying infrastructure on the transport.
 2. Custom: mass transit will configure the topology at the recieve endpoint level. We can for example, when we do publish, a topology will populate a routing key of the message that is sent. This is a publi topology. We can have message topology too.
+
+### Endpoints
+
+In mass transit, endpoints are messaging addresses or destinations to which messages are sent. It is vital in organizing and routing messages between different application ports.
+Mass transit configures endpoints for us based on conventions and should be what we use most of the time. However we can costumize it.
+We can haveÇ
+
+1. Receive endpoints: destination to receive messages. It is a well known queue where a consumer will listen and receive messages for processing. It is tied to a specific messagr queue or topic depending on the topic we are using.
+2. Publish endpoints: publish events to all interested subscribers. We usually do not intereact directly.
+3. Send endpoints. This representd the address where messages are sent explicitly without needing to know about consumers.
+
+We can configure endpoints to specify different things like transport, subscriptions, concurrency and Prefetch limits, retry policies, etc
+
+And endpoints is then somtehing that abstract the phisical messaging infrastrucure. It provides the mechanism for sending, receiving, or publish messages to a transport in a transport agnostic way.
