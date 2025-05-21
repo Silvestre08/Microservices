@@ -86,3 +86,40 @@ And endpoints is then somtehing that abstract the phisical messaging infrastrucu
 
 The framework that abstracts the complexity of dealing with messaging apis and infrastructure. It is like the repository pattern for database: we can have azure service bus, rabbit mq, amazon sqs with minimal code changes.
 It has buuilt in retry polocies, message serialization (we only define the message contracts and mass transit handles the deserialization for us), It also has a middleware pipeline that enable us to plug in and out logging , auth , monitoring and management. It also supports testing of message based application through its testing harness.
+
+Mass transit is added to the service collection in asp.net core:
+
+```
+            builder.Services.AddMassTransit(options =>
+            {
+                options.UsingRabbitMq((context, config) =>
+                {
+                    config.ConfigureEndpoints(context);
+                });
+            });
+```
+
+Everything we added here will be available on the bus, like filter, retry policies, etc.
+This is the minimum to have mass transit to work. It uses the default rabbitmq username and password behind the scenes so if we need extra configuration it would be needed to be applied here.
+Publishing our first message, when we create an order:
+
+```
+
+        [HttpPost]
+        public async Task<ActionResult<Order>> PostOrder(OrderModel model)
+        {
+            //verify stock
+            //var stocks = await productStockServiceClient.GetStock(
+            //    model.OrderItems.Select(p => p.ProductId).ToList());
+
+            var orderToAdd = mapper.Map<Order>(model);
+            var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
+            var publishOrder = _publishEndpoint.Publish(new OrderCreated { CreatedAt = createdOrder.OrderDate, Id = createdOrder.Id, OrderId = createdOrder.OrderId, TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price) });
+            return CreatedAtAction("GetOrder", new { id = createdOrder.Id }, createdOrder);
+        }
+```
+
+This is done by inject IPublishEndpoint interface. When we send that event we see on the rabbitmq console the exchange created by mass transit:
+![](doc/Screenshot%202025-05-20%20212318.png)
+Mass transit did not create a queue because no consumer got connected to it.
+we can also publish as anonymous types etc, like seen before.

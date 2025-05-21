@@ -1,6 +1,7 @@
 
 using Asp.Versioning;
 using Asp.Versioning.ApiExplorer;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -62,7 +63,6 @@ namespace ProductsApi
                 options.AllowEmptyInputInBodyModelBinding = true;
                 options.RespectBrowserAcceptHeader = true;
             });
-
 
             builder.Services.AddDbContext<ProductContext>(options =>
             options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))

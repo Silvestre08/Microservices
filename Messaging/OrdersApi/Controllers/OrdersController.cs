@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
+using Contracts.Events;
 using Contracts.Models;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Orders.Domain.Entities;
 using Orders.Service;
@@ -14,15 +16,18 @@ namespace OrdersApi.Controllers
         private readonly IOrderService _orderService;
         private readonly IProductStockServiceClient productStockServiceClient;
         private readonly IMapper mapper;
+        private readonly IPublishEndpoint _publishEndpoint;
 
         public OrdersController(IOrderService orderService,
             IProductStockServiceClient productStockServiceClient,
-            IMapper mapper
+            IMapper mapper,
+            IPublishEndpoint publishEndpoint
             )
         {
             _orderService = orderService;
             this.productStockServiceClient = productStockServiceClient;
             this.mapper = mapper;
+            _publishEndpoint = publishEndpoint;
         }
 
 
@@ -36,6 +41,7 @@ namespace OrdersApi.Controllers
 
             var orderToAdd = mapper.Map<Order>(model);
             var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
+            var publishOrder = _publishEndpoint.Publish(new OrderCreated { CreatedAt = createdOrder.OrderDate, Id = createdOrder.Id, OrderId = createdOrder.OrderId, TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price) });
             return CreatedAtAction("GetOrder", new { id = createdOrder.Id }, createdOrder);
         }
 
