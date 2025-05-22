@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Orders.Data;
 using Orders.Domain;
 using Orders.Service;
+using OrdersApi.Consumer;
 using OrdersApi.Infrastructure.Mappings;
 using OrdersApi.Service.Clients;
 using OrdersApi.Services;
@@ -41,6 +42,10 @@ namespace OrdersApi
 
             builder.Services.AddMassTransit(options =>
             {
+                //options.SetKebabCaseEndpointNameFormatter();
+                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
+                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false)); ;
+                options.AddConsumer<OrderCreatedConsumer>();
                 options.UsingRabbitMq((context, config) =>
                 {
                     config.ConfigureEndpoints(context);

@@ -123,3 +123,56 @@ This is done by inject IPublishEndpoint interface. When we send that event we se
 ![](doc/Screenshot%202025-05-20%20212318.png)
 Mass transit did not create a queue because no consumer got connected to it.
 we can also publish as anonymous types etc, like seen before.
+
+How do we create a consumer? Like this:
+
+```
+    public class OrderCreatedConsumer : IConsumer<OrderCreatedConsumer>
+    {
+        public Task Consume(ConsumeContext<OrderCreatedConsumer> context)
+        {
+            throw new NotImplementedException();
+        }
+    }
+```
+
+Note the implementation of the IConsumer interface. This is how a consumer of a message of type T gets created.
+It should be noted when a message type is shared between the producer and the consumer, it needs to have exactly the same namespace. So it is typical to share the messages with a class library.
+The Consume context gives us access to a few properties: like message headers, the message itself, the source of the message, what happens in case of fault, etc.
+We need to register the consumer in the mass transit pipeline. Notice that it is done before the line UsingRabbitMq because the consumers are independent of the transport.
+
+```
+    builder.Services.AddMassTransit(options =>
+    {
+        options.AddConsumer<OrderCreatedConsumer>(); // assembly scanning also works, etc
+        options.UsingRabbitMq((context, config) =>
+        {
+            config.ConfigureEndpoints(context);
+        });
+    });
+```
+
+After we do this and navigate to the queues tab in rabbitmq we will see we have a queue, order created! We see it is bound to an exchange. Enchanges and queue names are very important in mass transit.
+Whatever is sent to an exchange ends up in a queue.
+We can control the naming conventions that end up in rabbitmq. We can use data annotations in the consumer, for example:
+
+```
+    [EntityName("OrderCReted")]
+    public class OrderCreated
+    {}
+```
+
+Also using the options:
+
+```
+options.SetKebabCaseEndpointNameFormatter();
+```
+
+This would create order-created. The consumers will look globally for this formatter. Now if we want queues that start with a prefix:
+
+```
+               // options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
+                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
+```
+
+We can verify that the queue names now have prefix hello and kebab casing
