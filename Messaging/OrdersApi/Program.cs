@@ -42,12 +42,13 @@ namespace OrdersApi
 
             builder.Services.AddMassTransit(options =>
             {
-                //options.SetKebabCaseEndpointNameFormatter();
-                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
-                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false)); ;
+                options.SetKebabCaseEndpointNameFormatter();
+                //options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
+                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
                 options.AddConsumer<OrderCreatedConsumer>();
                 options.UsingRabbitMq((context, config) =>
                 {
+                    config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); });
                     config.ConfigureEndpoints(context);
                 });
             });

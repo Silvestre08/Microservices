@@ -176,3 +176,23 @@ This would create order-created. The consumers will look globally for this forma
 ```
 
 We can verify that the queue names now have prefix hello and kebab casing
+One thing to take into accout is that the other previous queue we created are still getting messages:
+![](doc/queuescopies.png)
+
+This is happening because the exchanges are of type topic, and once we set that message order created, the message will go to every single queue.
+
+### Receive Endpoints
+
+When we want to be more specific and attach a consumer to a specifc queue name, without relying on the convetions, we can do that via receive endpoints:
+
+```
+  options.UsingRabbitMq((context, config) =>
+  {
+      config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); })
+      config.ConfigureEndpoints(context);
+  });
+```
+
+Other things can be specified here, like retries and circuit breaker, etc.
+This latest configuration has precedence over what we configured at the bus level. We basically declare that at the end of this queue, we will have this specific consumer.
+So if we do not add consumer to specific receive endpoints, the settings at the bus level will be applied.
