@@ -196,3 +196,149 @@ When we want to be more specific and attach a consumer to a specifc queue name, 
 Other things can be specified here, like retries and circuit breaker, etc.
 This latest configuration has precedence over what we configured at the bus level. We basically declare that at the end of this queue, we will have this specific consumer.
 So if we do not add consumer to specific receive endpoints, the settings at the bus level will be applied.
+We can apply to consumers the so called consumer definitions. Consumer definitions are classes that pair with the consumers and handle their configurations, like endpoint name in the broker, concurrency limit for handling messages, etc:
+
+```
+    public class OrderCreatedConsumerDefinition : ConsumerDefinition<OrderCreatedConsumer>
+    {
+        public OrderCreatedConsumerDefinition()
+        {
+            Endpoint(options =>
+            {
+                options.Name = "ednpointName";
+                options.ConcurrentMessageLimit = 10;
+            });
+        }
+
+        protected override void ConfigureConsumer(IReceiveEndpointConfigurator endpointConfigurator, IConsumerConfigurator<OrderCreatedConsumer> consumerConfigurator)
+        {
+            consumerConfigurator.UseMessageRetry(r => r.Immediate(5));
+        }
+    }
+```
+
+On program Cs, we need to register the consumer definition as well:
+
+```
+options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+```
+
+Consumer definitions are a clean way to apply configurations. They remove the clutter from the program cs file and we can have multiple of them and swap them out if needed.
+
+## Messages
+
+### Message header
+
+It is very common to include additonal information about the business in the http headers for Rest Apis. We can do the same with messages.
+We can include key value pairs in the header. Lets see an example with a publish method:
+
+```
+            var publishOrder = _publishEndpoint.Publish(
+                new OrderCreated
+                { CreatedAt = createdOrder.OrderDate,
+                    Id = createdOrder.Id, OrderId = createdOrder.OrderId,
+                    TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
+                },
+                context =>
+                {
+                    context.Headers.Set("my-custom-header", "value");
+                });
+            return CreatedAtAction("GetOrder", new { id = createdOrder.Id }, createdOrder);
+```
+
+This is a way to add metadata to the message. We can add parameters, commands, etc and apply business logic with this metadata.
+On rabbitmq we can check the json obejct of a message and see the headers we just set. Also pay attention to the message anatomy and look at everything it contains:
+
+```
+{
+
+  "messageId": "a88b0000-84d7-1ddb-d46d-08dd9af26165",
+
+  "requestId": null,
+
+  "correlationId": null,
+
+  "conversationId": "a88b0000-84d7-1ddb-74fa-08dd9af26170",
+
+  "initiatorId": null,
+
+  "sourceAddress": "rabbitmq://localhost/DESKTOP3VIT6KG_OrdersApi_bus_infoyyrr4hq7s4ptbdq3ih1g88?temporary=true",
+
+  "destinationAddress": "rabbitmq://localhost/OrderCReted",
+
+  "responseAddress": null,
+
+  "faultAddress": null,
+
+  "messageType": [
+
+    "urn:message:Contracts.Events:OrderCreated"
+
+  ],
+
+  "message": {
+
+    "id": 13,
+
+    "orderId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+
+    "createdAt": "2025-05-24T18:39:55.0334654Z",
+
+    "totalAmount": "0"
+
+  },
+
+  "expirationTime": null,
+
+  "sentTime": "2025-05-24T18:39:56.3305069Z",
+
+  "headers": {
+
+    "my-custom-header": "value"
+
+  },
+
+  "host": {
+
+    "machineName": "DESKTOP-3VIT6KG",
+
+    "processName": "OrdersApi",
+
+    "processId": 35752,
+
+    "assembly": "OrdersApi",
+
+    "assemblyVersion": "1.0.0.0",
+
+    "frameworkVersion": "8.0.16",
+
+    "massTransitVersion": "8.4.1.0",
+
+    "operatingSystemVersion": "Microsoft Windows NT 10.0.26100.0"
+
+  }
+
+}
+```
+
+### Message expiration
+
+It is possible to configure a message with a period of time it will be valid. Let's say that, if a message is too old, we are not interested in processing it anymore.
+This is what is usually called the Time-To-Live property. The message will be "live" for the amount of time we set.
+
+```
+var publishOrder = _publishEndpoint.Publish(
+   new OrderCreated
+   {
+       CreatedAt = createdOrder.OrderDate,
+       Id = createdOrder.Id, OrderId = createdOrder.OrderId,
+       TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
+   },
+   context =>
+   {
+       context.TimeToLive = TimeSpan.FromSeconds(30);
+       context.Headers.Set("my-custom-header", "value");
+   });
+```
+
+If we do not specify a time to live, the validity of the message is going to be infinite, being this the default behavior of rabbitmq.
