@@ -43,12 +43,14 @@ namespace OrdersApi.Controllers
             var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
             var publishOrder = _publishEndpoint.Publish(
                 new OrderCreated
-                { CreatedAt = createdOrder.OrderDate,
+                { 
+                    CreatedAt = createdOrder.OrderDate,
                     Id = createdOrder.Id, OrderId = createdOrder.OrderId,
                     TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
                 }, 
                 context => 
-                { 
+                {
+                    context.TimeToLive = TimeSpan.FromSeconds(30);
                     context.Headers.Set("my-custom-header", "value");
                 });
             return CreatedAtAction("GetOrder", new { id = createdOrder.Id }, createdOrder);

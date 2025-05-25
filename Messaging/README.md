@@ -2,10 +2,10 @@
 
 Asynchronous messaging is a communication method that replaces traditional http request response pattern, and aims to resolve scalability problems in services oriented architectures. The traditional web apis, served over http have several problems that asynchronous messaging is trying to solve:
 
-1. Tight coupling between components and services inside organzation. If service A calls servive B that then calls service C, they are tightly coupled. Service A needs B and C in order to even function. Usually, when one of the service changes, the other have to change too.
+1. Tight coupling between components and services inside organzation. If service A calls servive B that then calls service C, they are tightly coupled. Service A needs B and C in order to even function. Usually, when one of the service changes, the others have to change too.
 2. Solve cascading failures. When communication is synchronous, if service A call service b that then calls service C, we are introducing a lot of latency in the request. Not only that.. what happens if one of the services fails? The whole chain fails.. What if one of the services is slow? it will make the overall system very slow and unresponsive.
 3. Restfull apis are limited by request response patterns. This is inflexible to implement complex workflows and event driven architectures.
-4. Scalling of services. Synchronous services are very hard to scale, because even if we have many instances of them runnins, they are still dependent on all the other services.
+4. Scalling of services. Synchronous services are very hard to scale, because even if we have many instances of them running, they are still dependent on all the other services.
 5. Long running operations where request response patterns are not very well suited. Example: client asks for long running operation ans gets notifed when it is complete.
 
 Messaging is not a silver bullet. Things to consider:
@@ -14,7 +14,7 @@ Messaging is not a silver bullet. Things to consider:
 2. Complexity in monitoring, troubleshooting, etc.
 3. Harder to maintain infrastructrue. The infrastructure needs to be thought out for high availability.
 4. Message ordering is challeging. Some systems can guarantee that at queue level, but on the overall system level can be very complex.
-5. Message deduplication. Duplication of messages can occur due to network failures and retries, etc. So this requires idempotency implementation of the messaging system.
+5. Message deduplication. Duplication of messages can occur due to network failures and retries, etc. So this requires idempotency implementation of message handling.
 6. Message delivery guarantees (only once, at least once, etc)
 7. Vendor lock in. Can be hard to switch messaging system in the future if we tightly couple the implementation details to any particular message broker. Use abstractions like mass transit can be good, that allow us to switch brokers.
 
@@ -342,3 +342,15 @@ var publishOrder = _publishEndpoint.Publish(
 ```
 
 If we do not specify a time to live, the validity of the message is going to be infinite, being this the default behavior of rabbitmq.
+
+### Worker Projects
+
+When designing a system with asynchronous messging, scaling is one of the most important factors to take into account. When millions of messages are being sent and consumed, it is important that the system components are able to scale up and down ir order to process those messages. So it is common to have consumers setup as backgroud workers, so that apis do not need to scale as well. Lets setup a worker project and listen to our order created event.
+Lets call that project AdminNotification.Worker.
+We will now have competing consumers. When we post new orders we will verify that the consumer that will react to the message will alternate: first, the order api, second the worker service, then we will be back to the orders api, and so on.
+This behavior is called competing consumers. At the end of the queue, we have two consumers that take turns on handling message load. This is a useful behavior for system scalling, when we have many instances of the consumers taking turns in processing the messages.
+Mass transit promotes the idea of one queue one consumer, but this option to scale can become in handy.
+
+### Commands
+
+So far we've seen events being sent as notifications. We can also have commands: tell the consumer to do something.
