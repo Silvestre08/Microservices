@@ -17,17 +17,19 @@ namespace OrdersApi.Controllers
         private readonly IProductStockServiceClient productStockServiceClient;
         private readonly IMapper mapper;
         private readonly IPublishEndpoint _publishEndpoint;
-
+        private readonly ISendEndpointProvider _sendEndpointProvider;
         public OrdersController(IOrderService orderService,
             IProductStockServiceClient productStockServiceClient,
             IMapper mapper,
-            IPublishEndpoint publishEndpoint
+            IPublishEndpoint publishEndpoint,
+            ISendEndpointProvider sendEndpointProvider
             )
         {
             _orderService = orderService;
             this.productStockServiceClient = productStockServiceClient;
             this.mapper = mapper;
             _publishEndpoint = publishEndpoint;
+            _sendEndpointProvider = sendEndpointProvider;
         }
 
 
@@ -35,25 +37,9 @@ namespace OrdersApi.Controllers
         [HttpPost]
         public async Task<ActionResult<Order>> PostOrder(OrderModel model)
         {
-            //verify stock
-            //var stocks = await productStockServiceClient.GetStock(
-            //    model.OrderItems.Select(p => p.ProductId).ToList());
-
-            var orderToAdd = mapper.Map<Order>(model);
-            var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
-            var publishOrder = _publishEndpoint.Publish(
-                new OrderCreated
-                { 
-                    CreatedAt = createdOrder.OrderDate,
-                    Id = createdOrder.Id, OrderId = createdOrder.OrderId,
-                    TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
-                }, 
-                context => 
-                {
-                    context.TimeToLive = TimeSpan.FromSeconds(30);
-                    context.Headers.Set("my-custom-header", "value");
-                });
-            return CreatedAtAction("GetOrder", new { id = createdOrder.Id }, createdOrder);
+            var sednEndpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order-command"));
+            await sednEndpoint.Send(model);
+            return Accepted();
         }
 
 

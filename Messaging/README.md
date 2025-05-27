@@ -354,3 +354,62 @@ Mass transit promotes the idea of one queue one consumer, but this option to sca
 ### Commands
 
 So far we've seen events being sent as notifications. We can also have commands: tell the consumer to do something.
+So lets start by moving the code from our Post order api to a background worker.
+To scale the api independely, lets move the code from the post order to a worker consumer. See how we can use the context, within a consumer, to publish messages as well. Context gives us many options like Shcedule publish, etc.
+
+```
+  public class CreateOrderConsumer : IConsumer<OrderModel>
+  {
+      private readonly IMapper _mapper;
+      private readonly IOrderService _orderService;
+
+      public CreateOrderConsumer(IMapper mapper, IOrderService orderService)
+      {
+          _mapper = mapper;
+          _orderService = orderService;
+      }
+
+      public async Task Consume(ConsumeContext<OrderModel> context)
+      {
+          Console.WriteLine($"I got a command to create an order: {context.Message}");
+          var orderToAdd = _mapper.Map<Order>(context.Message);
+          var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
+
+          var publishOrder = context.Publish(
+             new OrderCreated
+             {
+                 CreatedAt = createdOrder.OrderDate,
+                 Id = createdOrder.Id,
+                 OrderId = createdOrder.OrderId,
+                 TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
+             },
+             context =>
+             {
+                 context.TimeToLive = TimeSpan.FromSeconds(30);
+                 context.Headers.Set("my-custom-header", "value");
+             });
+      }
+  }
+```
+
+To send commands we can use the ISendEbdpointProvider from mass transit.
+mass transit supports this concept of short URI addresses, where we need to know exactly where we are sending. Send represents basically the concept of poit-to-point communication. See the refactored version of the order controller:
+
+```
+        // POST: api/Orders
+        [HttpPost]
+        public async Task<ActionResult<Order>> PostOrder(OrderModel model)
+        {
+            var sednEndpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order-command"));
+            await sednEndpoint.Send(model);
+            return Accepted();
+        }
+```
+
+Now If we start our worker, we can start the processing of messages. If the workers is stopped, the API and can still process post requests and send them to the queue. When the worker starts it will process all those messages.
+So far we see that mass transit distinguish commands from events. So we send commands and publish events.
+Some things are common to commands and eventsÇ things like headers, time to live properties, etc.
+
+### Request - Response pattern
+
+This pattern mimics what happens with simple HTTP communication. The behavior is the same but everything is done over queues.

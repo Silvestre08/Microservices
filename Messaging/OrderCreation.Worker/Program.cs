@@ -47,9 +47,9 @@ namespace OrderCreation.Worker
 
                         x.UsingRabbitMq((context, cfg) =>
                         {
-                            cfg.ReceiveEndpoint("order-created", e =>
+                            cfg.ReceiveEndpoint("create-order-command", e =>
                             {
-                                //e.ConfigureConsumer<OrderCreatedNotification>(context);
+                                e.ConfigureConsumer<CreateOrderConsumer>(context);
                             });
                             cfg.ConfigureEndpoints(context);
                         });
