@@ -1,3 +1,4 @@
+using Contracts.Response;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Orders.Data;
@@ -46,6 +47,8 @@ namespace OrdersApi
                 //options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
                 options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
                 options.AddConsumer<OrderCreatedConsumer>();
+                options.AddConsumer<VerifyOrderConsumer>();
+                options.AddRequestClient<VerifyOrder>();
                 //options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
                 options.UsingRabbitMq((context, config) =>
                 {

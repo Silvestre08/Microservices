@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using Contracts.Events;
 using Contracts.Models;
+using Contracts.Response;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using Orders.Domain.Entities;
@@ -18,11 +19,14 @@ namespace OrdersApi.Controllers
         private readonly IMapper mapper;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly ISendEndpointProvider _sendEndpointProvider;
+        private readonly IRequestClient<VerifyOrder> _requestClient;
+
         public OrdersController(IOrderService orderService,
             IProductStockServiceClient productStockServiceClient,
             IMapper mapper,
             IPublishEndpoint publishEndpoint,
-            ISendEndpointProvider sendEndpointProvider
+            ISendEndpointProvider sendEndpointProvider,
+            IRequestClient<VerifyOrder> requestClient
             )
         {
             _orderService = orderService;
@@ -30,6 +34,7 @@ namespace OrdersApi.Controllers
             this.mapper = mapper;
             _publishEndpoint = publishEndpoint;
             _sendEndpointProvider = sendEndpointProvider;
+            _requestClient = requestClient;
         }
 
 
@@ -43,17 +48,18 @@ namespace OrdersApi.Controllers
         }
 
 
-        // GET: api/Orders/5
+        // Fix for CS8600: Ensure nullability checks are added to handle possible null values.
         [HttpGet("{id}")]
         public async Task<ActionResult<Order>> GetOrder(int id)
         {
-            var order = await _orderService.GetOrderAsync(id);
-            if (order == null)
+            var order = await _requestClient.GetResponse<OrderResult, OrderNotFoundResult>(new VerifyOrder { OrderId = id });
+
+            if (order.Is(out Response<OrderResult>? orderResult) && orderResult != null)
             {
-                return NotFound();
+                return Ok(orderResult.Message);
             }
 
-            return Ok(order);
+            return NotFound();
         }
 
         // PUT: api/Orders/5

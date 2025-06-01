@@ -408,8 +408,136 @@ mass transit supports this concept of short URI addresses, where we need to know
 
 Now If we start our worker, we can start the processing of messages. If the workers is stopped, the API and can still process post requests and send them to the queue. When the worker starts it will process all those messages.
 So far we see that mass transit distinguish commands from events. So we send commands and publish events.
-Some things are common to commands and eventsÇ things like headers, time to live properties, etc.
+Some things are common to commands and events things like headers, time to live properties, etc.
 
 ### Request - Response pattern
 
-This pattern mimics what happens with simple HTTP communication. The behavior is the same but everything is done over queues.
+This pattern mimics what happens with simple HTTP communication. The behavior is the same but everything is done over queues. This can increase the overall latency of a system, given the fact messages buses use case is not exactly this one. But sometimes, alternative solutions can be more complicated.
+In order to implemente this pattern we need three things:
+
+1. The result object: what the consumer will return.
+
+```
+    public class OrderResult
+    {
+        public int Id { get; set; }
+
+        public DateTime OrderDate { get; set; }
+
+        public OrderStatus Status { get; set; }
+    }
+```
+
+2. The message:
+
+```
+    public class VerifyOrder
+    {
+        public int OrderId { get; set; }
+    }
+```
+
+2. The client that will ask for the resource
+
+```
+        private readonly IRequestClient<VerifyOrder> _requestClient;
+
+        // usage
+
+```
+
+3. Consumer that will receive the request from a queue. Example with happy path:
+
+```
+  public class VerifyOrderConsumer : IConsumer<VerifyOrder>
+  {
+      public async Task Consume(ConsumeContext<VerifyOrder> context)
+      {
+          await context.RespondAsync<OrderResult>(new OrderResult
+          {
+              Id = context.Message.OrderId,
+              OrderDate = DateTime.UtcNow,
+              Status = Orders.Domain.Entities.OrderStatus.Pending,
+          });
+      }
+  }
+```
+
+4. Register the new client and consumer in the middleware:
+
+```
+                options.AddConsumer<VerifyOrderConsumer>();
+                options.AddRequestClient<VerifyOrder>();
+```
+
+For every single request that we will do, mass transit will create a tempory queue in the broker and it is through that queue that it will listen to the response.
+
+This is great, but lets check how to handle multiple return types:
+
+```
+
+        public async Task Consume(ConsumeContext<VerifyOrder> context)
+        {
+            var existingOrder = await _orderService.GetOrderAsync(context.Message.OrderId);
+
+            if (existingOrder != null)
+            {
+                await context.RespondAsync<OrderResult>(new OrderResult
+                {
+                    Id = context.Message.OrderId,
+                    OrderDate =  existingOrder.OrderDate,
+                    Status = existingOrder.Status,
+                });
+
+                return;
+            }
+
+            await context.RespondAsync<OrderNotFoundResult>(new OrderNotFoundResult
+            {
+                ErrorResult = "Order not found."
+            });
+        }
+```
+
+We can see that we have multiple return types. How do we deal with that on our controller?
+
+```
+     var order = await _requestClient.GetResponse<OrderResult, OrderNotFoundResult>(new VerifyOrder { OrderId = id });
+
+     if (order.Is(out Response<OrderResult>? orderResult) && orderResult != null)
+     {
+         return Ok(orderResult.Message);
+     }
+
+     return NotFound();
+
+
+```
+
+See how the two types of responses are presentm declared as generics.
+The types are actually very important consideration on the consumer side. The consumer kinf of needs to be aware of the types it can responde to. We can check that via the context headers. The context headers has a keyvalue pair entry of mass transit accept type. The value of this key value pair is a list of the types it is allowed to useÇ
+![](doc/MassTransitHeaders.png)
+
+We could do type checks like in this case, where we verify if a response of a particular type is accepted:
+
+```
+            var existingOrder = await _orderService.GetOrderAsync(context.Message.OrderId);
+
+            if (!context.IsResponseAccepted<Order>())
+            {
+                throw new ArgumentException("Type not accepted");
+            }
+
+```
+
+The types accepted are defined on the request client:
+
+```
+           var order = await _requestClient.GetResponse<OrderResult, OrderNotFoundResult>(new VerifyOrder { OrderId = id });
+
+```
+
+In order to fix this case, we would add a third generic type on the request client above.
+We can check this on rabbitmq as well.
+
+## Error handling
