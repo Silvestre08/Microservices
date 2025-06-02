@@ -541,3 +541,13 @@ In order to fix this case, we would add a third generic type on the request clie
 We can check this on rabbitmq as well.
 
 ## Error handling
+
+### Skipped Queues
+
+They are custom queues in message driven systems, like rabbitMQ, to handle messages that are not intentionally processed by the consumers. They are routed to a separate queue, named \_skipped, for later review, logging, or alternative process. They are created automatically when a consumer disconnects from an endpoint. They are not related to exceptions or erros thrown by the consumers.
+So if we disconnect from an endpoint and publish a message we will create a skipped queue:
+![](doc/skippedQueue.png)
+We did that by commenting the add consummer code of the create order command, restart and then publish message.
+By attaching a consumer to this queue, we could get these messages processed.
+
+### Error queues
