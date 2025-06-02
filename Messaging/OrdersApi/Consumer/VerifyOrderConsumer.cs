@@ -1,5 +1,6 @@
 ﻿using Contracts.Response;
 using MassTransit;
+using Orders.Domain.Entities;
 using Orders.Service;
 
 namespace OrdersApi.Consumer
@@ -16,6 +17,11 @@ namespace OrdersApi.Consumer
         public async Task Consume(ConsumeContext<VerifyOrder> context)
         {
             var existingOrder = await _orderService.GetOrderAsync(context.Message.OrderId);
+
+            if (!context.IsResponseAccepted<Order>())
+            {
+                throw new ArgumentException("Type not accepted");
+            }
 
             if (existingOrder != null) 
             {

@@ -551,3 +551,9 @@ We did that by commenting the add consummer code of the create order command, re
 By attaching a consumer to this queue, we could get these messages processed.
 
 ### Error queues
+
+Error queues are different that skipped queues. The difference is that error queues are related to the handling logic or message expiration. One way to create such queues is to throw an exception while consuming the messages.
+We will see in rabbitMQ an error queue created:
+![](doc/errorQueue.png)
+
+If we navigate
