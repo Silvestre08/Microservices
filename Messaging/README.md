@@ -552,8 +552,13 @@ By attaching a consumer to this queue, we could get these messages processed.
 
 ### Error queues
 
-Error queues are different that skipped queues. The difference is that error queues are related to the handling logic or message expiration. One way to create such queues is to throw an exception while consuming the messages.
+Error queues are different that skipped queues. The difference is that error queues are related to the handling logic or message expiration. One way to create such queues with mass transit is to throw an exception while consuming the messages.
 We will see in rabbitMQ an error queue created:
 ![](doc/errorQueue.png)
 
-If we navigate
+If we navigate to the new queue page, and inspect its messages, we can see the exception details given by mass transit:
+
+![](doc/exceptionDetails.png)
+
+These error queues give us the possibility to move messges back to original queues and replay them.
+As with normal queues, error queue names can be customized to.
