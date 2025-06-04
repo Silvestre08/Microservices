@@ -562,3 +562,32 @@ If we navigate to the new queue page, and inspect its messages, we can see the e
 
 These error queues give us the possibility to move messges back to original queues and replay them.
 As with normal queues, error queue names can be customized to.
+We need:
+
+1. Create an error queue name formater:
+
+```
+    public class MyCoolErrorFormatter : IErrorQueueNameFormatter
+    {
+        public string FormatErrorQueueName(string queueName)
+        {
+            return queueName + "-awesome_error";
+        }
+    }
+```
+
+2. Add it to send topology when configuring queues:
+
+```
+                        x.UsingRabbitMq((context, cfg) =>
+                        {
+                            cfg.SendTopology.ErrorQueueNameFormatter = new MyCoolErrorFormatter();
+                            cfg.ReceiveEndpoint("create-order-command", e =>
+                            {
+                                e.ConfigureConsumer<CreateOrderConsumer>(context);
+                            });
+                            cfg.ConfigureEndpoints(context);
+                        });
+```
+
+This way we can easily see in rabbitmq queues that contain errors.

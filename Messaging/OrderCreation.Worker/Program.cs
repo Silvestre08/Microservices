@@ -1,3 +1,4 @@
+using Contracts.Infrrastructure;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +48,7 @@ namespace OrderCreation.Worker
 
                         x.UsingRabbitMq((context, cfg) =>
                         {
+                            cfg.SendTopology.ErrorQueueNameFormatter = new MyCoolErrorFormatter();
                             cfg.ReceiveEndpoint("create-order-command", e =>
                             {
                                 e.ConfigureConsumer<CreateOrderConsumer>(context);
