@@ -544,7 +544,7 @@ We can check this on rabbitmq as well.
 
 ### Skipped Queues
 
-They are custom queues in message driven systems, like rabbitMQ, to handle messages that are not intentionally processed by the consumers. They are routed to a separate queue, named \_skipped, for later review, logging, or alternative process. They are created automatically when a consumer disconnects from an endpoint. They are not related to exceptions or erros thrown by the consumers.
+They are custom queues in message driven systems, like rabbitMQ, to handle messages that are not intentionally processed by the consumers. They are routed to a separate queue, named "\*\_skipped", for later review, logging, or alternative process. They are created automatically when a consumer disconnects from an endpoint. They are not related to exceptions or errors thrown by the consumers.
 So if we disconnect from an endpoint and publish a message we will create a skipped queue:
 ![](doc/skippedQueue.png)
 We did that by commenting the add consummer code of the create order command, restart and then publish message.
@@ -620,3 +620,56 @@ Here is what happens now:
 1. The messages gets tranferred to an error queue.
 
 We can also listen to all faults, independent of the message type.
+
+```
+    public class AllFaultsConsumer : IConsumer<Fault>
+    {
+        public Task Consume(ConsumeContext<Fault> context)
+        {
+            Console.WriteLine($"This is a fault message. The message faulted {context.Message.FaultedMessageId}");
+            return Task.CompletedTask;
+        }
+    }
+
+```
+
+Mass transit is a very flexible framework, so of course we can turn off fault events:
+
+1. In the consumer definition, we set the flag to not publish faults:
+
+```
+        protected override void ConfigureConsumer(IReceiveEndpointConfigurator endpointConfigurator, IConsumerConfigurator<OrderCreatedConsumer> consumerConfigurator)
+        {
+            consumerConfigurator.UseMessageRetry(r => r.Immediate(5));
+            endpointConfigurator.PublishFaults = false;
+        }
+```
+
+## Resilience
+
+A way of adding resilience to a system is to implement a retry mechanism. That can be achieve using the consumer definitions or configuring policies.
+
+### Policies
+
+Retry policies can be set individually on every consumer definition. They can also be set globally when configuring rabbitmq. There are several ways we can configure retries:
+
+1. Immediate: message is retried immediately
+1. Interval: message retried within a certain interval.
+1. Exponential: interval of retries grows exponentially.
+1. Ignore.
+1. Incremental.
+
+Configuring at the broker level (applicable to every single endpoint):
+
+```
+options.UsingRabbitMq((context, config) =>
+{
+    config.UseMessageRetry((r) => r.Immediate(2));
+    config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); });
+    config.ConfigureEndpoints(context);
+});
+```
+
+So we can have global policy, endpoint poolicy or individual consumer policy.
+
+We can verify on our consumers if the execution is being done via a retry mechanism.

@@ -16,6 +16,7 @@ namespace OrdersApi.Consumer
         protected override void ConfigureConsumer(IReceiveEndpointConfigurator endpointConfigurator, IConsumerConfigurator<OrderCreatedConsumer> consumerConfigurator)
         {
             consumerConfigurator.UseMessageRetry(r => r.Immediate(5));
+            endpointConfigurator.PublishFaults = false;
         }
     }
 }

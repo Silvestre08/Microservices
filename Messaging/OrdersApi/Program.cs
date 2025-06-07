@@ -46,11 +46,11 @@ namespace OrdersApi
                 options.SetKebabCaseEndpointNameFormatter();
                 //options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
                 options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
-                options.AddConsumer<OrderCreatedConsumer>();
+                //options.AddConsumer<OrderCreatedConsumer>();
                 options.AddConsumer<VerifyOrderConsumer>();
                 options.AddConsumer<OrderCreateFaultConsumer>();
                 options.AddRequestClient<VerifyOrder>();
-                //options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+                options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
                 options.UsingRabbitMq((context, config) =>
                 {
                     config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); });
