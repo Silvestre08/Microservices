@@ -8,6 +8,7 @@ namespace OrdersApi.Consumer
         public async Task Consume(ConsumeContext<OrderCreated> context)
         {
             await Task.Delay(1000);
+            throw new ArgumentNullException();
            Console.WriteLine(context.Message); 
         }
     }

@@ -26,8 +26,6 @@ namespace OrderCreation.Worker
 
         public async Task Consume(ConsumeContext<OrderModel> context)
         {
-            throw new ArgumentException("This is an error to test the retry policy.");
-
             Console.WriteLine($"I got a command to create an order: {context.Message}");
             var orderToAdd = _mapper.Map<Order>(context.Message);
             var createdOrder = await _orderService.AddOrderAsync(orderToAdd);

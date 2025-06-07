@@ -48,6 +48,7 @@ namespace OrdersApi
                 options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
                 options.AddConsumer<OrderCreatedConsumer>();
                 options.AddConsumer<VerifyOrderConsumer>();
+                options.AddConsumer<OrderCreateFaultConsumer>();
                 options.AddRequestClient<VerifyOrder>();
                 //options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
                 options.UsingRabbitMq((context, config) =>

@@ -591,3 +591,32 @@ We need:
 ```
 
 This way we can easily see in rabbitmq queues that contain errors.
+
+### Faults
+
+A fault is an event that gets published when a consumer throws an exception that is not handled, not retried or consumed. On the last example we threw an exception and we did not configure any retries for the message. So when we go to rabbitmq we see fault exchanges:
+![](doc/faultexchanges.png)
+Before a message moves to an error queue, a fault of it happens. We can listen to these events, by creating a consumer that listens to a fault event of <T>. Here is how we configure a consumer to listen to a fault of OrcderCreated:
+
+```
+    public class OrderCreateFaultConsumer : IConsumer<Fault<OrderCreated>>
+    {
+        public Task Consume(ConsumeContext<Fault<OrderCreated>> context)
+        {
+            Console.WriteLine($"This is a order created fault. The message faulted {context.Message.Message.OrderId}");
+            return Task.CompletedTask;
+        }
+    }
+
+```
+
+So we register an IConsumer<Fault<T>>.
+Here is what happens now:
+
+1. We accept an order and send a command to the worker to create an order.
+1. The worker creates an order and publishes the event order created.
+1. The order created consumer throws an exception.
+1. A fault queue is created and the message is consumer by the fault consumer.
+1. The messages gets tranferred to an error queue.
+
+We can also listen to all faults, independent of the message type.
