@@ -718,3 +718,60 @@ We configure that following the steps:
 1. Download the plugin and cp to the download folder.
 1. copy the plugon to the conatiner: docker cp rabbitmq_delayed_message_exchange-3.13.0.ez rabbitmq:/plugins/
 1. Enable the plugin: docker exec rabbitmq rabbitmq-plugins enable rabbitmq_delayed_message_exchange
+
+Again on our consumer definition we add the configuration for re-delivery, on our create order command consumer definition:
+
+```
+           consumerConfigurator.UseDelayedRedelivery(r =>
+           {
+               r.Intervals(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60));
+           });
+
+           consumerConfigurator.UseMessageRetry(r =>
+           {
+               // Retry the message 5 times with intervals of 10, 20, and 30 seconds
+               r.Immediate(5);
+               r.Ignore<OrderTooSmallExcdeption>();
+               r.Handle<HandleAllExceptions>();
+           });
+```
+
+We can access the redelivery count property through the context:
+
+```
+            Console.WriteLine($"This is the retry attempt from {context.GetRetryAttempt()} from {context.GetRedeliveryCount()}");
+```
+
+In rabbit we now see a new exchange bound to the queue:
+![](doc//createorderCommandDelay.png)
+
+The exchange has the command name followed by underscore delay, by convention.
+What happens with this configuration? Well, the message is immediately retried 5 times. 20s after those 5 times, the message will be redelivered.
+So the redelivery attempt will be 0 for the 5 five retries and then the message will be redilivered (throwing exceptions on purpose to simulate):
+
+```
+This is the retry attempt from 0 from 0.
+This is the retry attempt from 1 from 0.
+This is the retry attempt from 2 from 0.
+This is the retry attempt from 3 from 0.
+This is the retry attempt from 4 from 0.
+This is the retry attempt from 5 from 0.
+This is the retry attempt from 0 from 1.
+This is the retry attempt from 1 from 1.
+This is the retry attempt from 2 from 1.
+This is the retry attempt from 3 from 1.
+
+```
+
+So redelivery is configurable as retriable too.
+This is powerfull, so now the message will only move to the error queue if the redelivery attempt does not succeed as well. These configurations well applied, let errors be handled and retried while not stopping the processing pipeline. Ok some messages error, but other messages can proceed.
+
+### Replaying a message
+
+We can move messages from the error queue back to their queue to be reprocessed. We can do that manually by copying the payload or by enable the shovel plugin in rabbitmq that can replay all messages:
+
+```
+docker exec rabbitmq rabbitmq-plugins enable rabbitmq_shovel rabbitmq_shovel_management
+```
+
+We can than move in the rabbitmq management plugin to the original queue.

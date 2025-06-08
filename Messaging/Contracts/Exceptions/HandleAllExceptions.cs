@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Contracts.Exceptions
 {
-    internal class HandleAllExceptions
+    public class HandleAllExceptions : Exception
     {
     }
 }
