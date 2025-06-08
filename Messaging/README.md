@@ -713,3 +713,8 @@ Anything but that type of exception would be retried. OrderTooSmallException wou
 ### Message Redeliveries
 
 Sometimes servicesd are down. It just happens. Sometime is usefull to avoid falling in these retry mechanisms. Sometimes it is usefull to delivery the message again at a much later time. That is message redelivery. This requires a special rabbitmq plugin enabled: the delayed exchange plugin.
+We configure that following the steps:
+
+1. Download the plugin and cp to the download folder.
+1. copy the plugon to the conatiner: docker cp rabbitmq_delayed_message_exchange-3.13.0.ez rabbitmq:/plugins/
+1. Enable the plugin: docker exec rabbitmq rabbitmq-plugins enable rabbitmq_delayed_message_exchange
