@@ -7,8 +7,8 @@ namespace OrdersApi.Consumer
     {
         public async Task Consume(ConsumeContext<OrderCreated> context)
         {
+            context.GetRetryAttempt();
             await Task.Delay(1000);
-            throw new ArgumentNullException();
            Console.WriteLine(context.Message); 
         }
     }

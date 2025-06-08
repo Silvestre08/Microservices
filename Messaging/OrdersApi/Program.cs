@@ -53,6 +53,7 @@ namespace OrdersApi
                 options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
                 options.UsingRabbitMq((context, config) =>
                 {
+                    config.UseMessageRetry((r) => r.Immediate(2));
                     config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); });
                     config.ConfigureEndpoints(context);
                 });

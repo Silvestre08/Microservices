@@ -45,7 +45,7 @@ namespace OrderCreation.Worker
                         var entryAssembly = Assembly.GetEntryAssembly();
 
                         x.AddConsumers(entryAssembly);
-
+                        x.AddConsumer<CreateOrderConsumer, CreateOrderConsumerDefinition>();
                         x.UsingRabbitMq((context, cfg) =>
                         {
                             cfg.SendTopology.ErrorQueueNameFormatter = new MyCoolErrorFormatter();

@@ -671,5 +671,45 @@ options.UsingRabbitMq((context, config) =>
 ```
 
 So we can have global policy, endpoint poolicy or individual consumer policy.
-
+The most specific policy wins so if we define one at the endpoint level, it will override the one at the broker.
 We can verify on our consumers if the execution is being done via a retry mechanism.
+
+```
+var attempt = context.GetRetryAttempt();
+```
+
+Be carefull to not spread policies all around the code.
+
+Of course we can also create our custom exceptions and use that as reasons to not process the message:
+
+```
+           Console.WriteLine($"I got a command to create an order: {context.Message}");
+           var orderToAdd = _mapper.Map<Order>(context.Message);
+
+           var total = orderToAdd.OrderItems.Sum(i => i.Quantity * i.Price);
+           if(total <= 100)
+           {
+               throw new OrderTooSmallExcdeption();
+           }
+```
+
+Mass transit also provides functionality of exception filters. We can create custom exceptions and we can choose which ones we want to address and the ones we want to ignore. We can define that on the retry policy:
+
+```
+        protected override void ConfigureConsumer(IReceiveEndpointConfigurator endpointConfigurator, IConsumerConfigurator<CreateOrderConsumer> consumerConfigurator)
+        {
+            endpointConfigurator.UseMessageRetry(r =>
+            {
+                // Retry the message 5 times with intervals of 10, 20, and 30 seconds
+                r.Immediate(5);
+                r.Ignore<OrderTooSmallExcdeption>();
+                r.Handle<HandleAllExceptions>();
+            });
+        }
+```
+
+Anything but that type of exception would be retried. OrderTooSmallException would be ignored.
+
+### Message Redeliveries
+
+Sometimes servicesd are down. It just happens. Sometime is usefull to avoid falling in these retry mechanisms. Sometimes it is usefull to delivery the message again at a much later time. That is message redelivery. This requires a special rabbitmq plugin enabled: the delayed exchange plugin.

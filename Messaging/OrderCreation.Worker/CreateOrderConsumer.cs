@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Contracts.Events;
+using Contracts.Exceptions;
 using Contracts.Models;
 using MassTransit;
 using MassTransit.Transports;
@@ -28,6 +29,12 @@ namespace OrderCreation.Worker
         {
             Console.WriteLine($"I got a command to create an order: {context.Message}");
             var orderToAdd = _mapper.Map<Order>(context.Message);
+            
+            var total = orderToAdd.OrderItems.Sum(i => i.Quantity * i.Price);
+            if(total <= 100)
+            {
+                throw new OrderTooSmallExcdeption();
+            }
             var createdOrder = await _orderService.AddOrderAsync(orderToAdd);
 
             var publishOrder = context.Publish(
