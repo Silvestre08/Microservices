@@ -57,5 +57,7 @@ namespace Orders.Data
         {
             return await _context.Orders.AnyAsync(e => e.Id == id);
         }
+
+        public Task<int> SaveChangesAsync() => _context.SaveChangesAsync();
     }
 }
