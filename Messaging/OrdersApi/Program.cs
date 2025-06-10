@@ -1,3 +1,5 @@
+using Contracts.Filters;
+using Contracts.Models;
 using Contracts.Response;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +38,7 @@ namespace OrdersApi
             builder.Services.AddScoped<IOrderService, OrderService>();
 
             builder.Services.AddHttpClient<IProductStockServiceClient, ProductStockServiceClient>();
-
+            builder.Services.AddScoped<Tenant>();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -54,7 +56,15 @@ namespace OrdersApi
                 options.UsingRabbitMq((context, config) =>
                 {
                     config.UseMessageRetry((r) => r.Immediate(2));
-                    config.ReceiveEndpoint("order-created", e => { e.ConfigureConsumer<OrderCreatedConsumer>(context); });
+                    config.UseSendFilter(typeof(TenantSendFilter<>),context);
+                    config.UsePublishFilter(typeof(TenantPublishFilter<>), context, x => x.Include<Email>());
+                    config.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
+                    config.UsePublishFilter<TenantPublishEmailFilter>(context);
+                    config.ReceiveEndpoint("order-created", 
+                        e => 
+                        { 
+                            e.ConfigureConsumer<OrderCreatedConsumer>(context);
+                        });
                     config.ConfigureEndpoints(context);
                 });
             });

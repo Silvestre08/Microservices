@@ -775,3 +775,164 @@ docker exec rabbitmq rabbitmq-plugins enable rabbitmq_shovel rabbitmq_shovel_man
 ```
 
 We can than move in the rabbitmq management plugin to the original queue.
+
+## Mass transit middlewares
+
+A middleware is a software component that acts as an intermediary in communication or a data processing chain.
+It will handle tasks between the source of the request and the final handler, in our case, the consumer. Think of it as the asp.net core middleware pipeline.
+It handles common tasks to the application, like authentication, logging, data transformation, etc.
+In mass transit, it lets us inject behaviors in the messaging processing pipeline.
+The middleware concepts operates on the pipes and filters pattern, where a series of filters process messages as they pass through a pipeline. Each filter can modify, process or react to the message before passing it along to the next filkter in sequence.
+
+### Send filters
+
+How to add a middleware that changes the message headers and adds a tenant Id on messages sent:
+
+```
+    public class TenantSendFilter<T> : IFilter<SendContext<T>> where T : class
+    {
+        private readonly Tenant _tenant;
+
+        public TenantSendFilter(Tenant tentant)
+        {
+            _tenant = tentant ?? throw new ArgumentNullException(nameof(tentant));
+        }
+
+        public void Probe(ProbeContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Send(SendContext<T> context, IPipe<SendContext<T>> next)
+        {
+            if (!string.IsNullOrWhiteSpace(_tenant.TenantId))
+            {
+                context.Headers.Set("Tennant-From-App", _tenant.TenantId);
+            }
+
+            return next.Send(context);
+        }
+    }
+```
+
+We created a class that implements the IFilter<SendContext<T>>. this will add the tenant id to all our message headers, before they are actually sent to the broker. Of course we need to register this filter with IoC container:
+
+```
+                    config.UseSendFilter(typeof(TenantSendFilter<>),context);
+```
+
+### Publish filters
+
+Similarly to the send filter, we can have publish filters:
+
+```
+    public class TenantPublishFilter<T> : IFilter<PublishContext<T>> where T : class
+    {
+        private readonly Tenant _tenant;
+
+        public TenantPublishFilter(Tenant tenant)
+        {
+            _tenant = tenant ?? throw new ArgumentNullException(nameof(tenant));
+        }
+
+        public void Probe(ProbeContext context)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task Send(PublishContext<T> context, IPipe<PublishContext<T>> next)
+        {
+            if(string.IsNullOrWhiteSpace(_tenant.TenantId))
+            {
+                context.Headers.Set("Tenant-From-Publish", _tenant.TenantId);
+            }
+
+            return next.Send(context);
+        }
+    }
+```
+
+Then in the Ioc Container:
+
+```
+config.UsePublishFilter(typeof(TenantPublishFilter<>), context);
+```
+
+One caveat to take into account is that we send a command to create an order. So we use "Send". When we create an order we publish an order created event. If we verify the headers, we see on the order created consumer, the header will be the same as the one in the "send", not in publish. If we publish on a consumer of a send, mass transit keeps scope.
+So for this publish filter to work, the publish would need to be a "first order message".
+
+### Consume filters
+
+Consumer filters are similar to the publish and send filters. They would invoked while consuming the messages. So lets implement tenant filter on consumer side:
+
+```
+    public class TenantConsumeFilter<T> : IFilter<ConsumeContext<T>> where T : class
+    {
+        private readonly Tenant _tenant;
+        public TenantConsumeFilter(Tenant tenant)
+        {
+            _tenant = tenant ?? throw new ArgumentNullException(nameof(tenant));
+        }
+
+        public void Probe(ProbeContext context)
+        {
+            context.CreateMessageScope("TenantConsumeFilter");
+        }
+
+        public Task Send(ConsumeContext<T> context, IPipe<ConsumeContext<T>> next)
+        {
+            var tenantId = context.Headers.Get<string>("Tenant-From-Publish", null) ??
+                            context.Headers.Get<string>("Tennant-From-App", null);
+
+            return next.Send(context);
+        }
+    }
+```
+
+And on the IoC:
+
+```
+                    config.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
+```
+
+All filters so far are generic and applied globally. It is possible to apply filters to specific types of messages: when publishing or sending a specific type, or when consuming a specific type, etc.
+If we add a filter that implements IFilter<ConsumeContext> means that is a filter that is not linked to any specific type.
+
+One important thing to take into consideration is the order the filters are added into the IoC container. Order matterns, and the order we use to declare them, is the order on which the filters will actually be executed on.
+Lastly, we can add strongly typed filter:
+
+```
+  public class TenantPublishEmailFilter : IFilter<PublishContext<Email>>
+  {
+      public void Probe(ProbeContext context)
+      {
+          throw new NotImplementedException();
+      }
+
+      public Task Send(PublishContext<Email> context, IPipe<PublishContext<Email>> next)
+      {
+          Console.WriteLine("Hello");
+          return next.Send(context);
+      }
+  }
+```
+
+Whenever we publish a message of type Email, this filter will run:
+
+```
+config.UsePublishFilter<TenantPublishEmailFilter>(context);
+// we can also add via generic type:
+config.UsePublishFilter(typeof(TenantPublishFilter<>), context, x => x.Include<Email>());
+```
+
+These filters can be applied at the transport level, or per receive endpoint of course. If we configure the receive endpoint, the filter will run on the scope of the endpoint and not globally.
+
+## Inbox and Outbox patterns
+
+These patterns help us keep good reliability on our system. The outbox pattern ensures message delivery. How?
+Usually we save something to a database and, after the transaction is completed, an event is published to notify another service. What happens if the broker is not reachable? The message will get lost and the system inconsistent.
+This is where the outbox pattern comes in. The message is saved in a database table, an outbox table, together with the main trasaction. So if some of the two operation fails, the whole transaction fails. If both succeed (the main transaction and the outbox message stored in the in the database) the whole operation succeeds. A separate process reads the messages from the outbox table and publishes them to the broker. Because the message and the transaction go together, messages will not be lost and will be removed from the outbox table after they are aknowledged by the broker.
+This process ensures at least once delivery:
+
+![](doc/outbox.png)
+Of course this add complexity. Messages will be retried in case of failure which can create duplication that needs to be handled by the consumers. Messages will also be out of order, meaning that is important to have mechanisms in place to ensure consistency, specially if order matters.

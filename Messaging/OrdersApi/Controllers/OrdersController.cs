@@ -1,9 +1,11 @@
 ﻿using AutoMapper;
 using Contracts.Events;
+using Contracts.Filters;
 using Contracts.Models;
 using Contracts.Response;
 using MassTransit;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Client;
 using Orders.Domain.Entities;
 using Orders.Service;
 using OrdersApi.Service.Clients;
@@ -20,13 +22,15 @@ namespace OrdersApi.Controllers
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly ISendEndpointProvider _sendEndpointProvider;
         private readonly IRequestClient<VerifyOrder> _requestClient;
+        private readonly Tenant _tenant;
 
         public OrdersController(IOrderService orderService,
             IProductStockServiceClient productStockServiceClient,
             IMapper mapper,
             IPublishEndpoint publishEndpoint,
             ISendEndpointProvider sendEndpointProvider,
-            IRequestClient<VerifyOrder> requestClient
+            IRequestClient<VerifyOrder> requestClient,
+            Tenant tenant 
             )
         {
             _orderService = orderService;
@@ -35,6 +39,8 @@ namespace OrdersApi.Controllers
             _publishEndpoint = publishEndpoint;
             _sendEndpointProvider = sendEndpointProvider;
             _requestClient = requestClient;
+            _tenant = tenant;
+            _tenant.TenantId = Guid.NewGuid().ToString();
         }
 
 
@@ -44,6 +50,7 @@ namespace OrdersApi.Controllers
         {
             var sednEndpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order-command"));
             await sednEndpoint.Send(model);
+            await _publishEndpoint.Publish<Email>(new Email { Subject = "Email", Body = "Greetings" });
             return Accepted();
         }
 

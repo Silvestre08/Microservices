@@ -31,7 +31,6 @@ namespace OrderCreation.Worker
             var orderToAdd = _mapper.Map<Order>(context.Message);
 
             Console.WriteLine($"This is the retry attempt from {context.GetRetryAttempt()} from {context.GetRedeliveryCount()}");
-            throw new HandleAllExceptions();
 
             var total = orderToAdd.OrderItems.Sum(i => i.Quantity * i.Price);
             if(total <= 100)
