@@ -936,3 +936,14 @@ This process ensures at least once delivery:
 
 ![](doc/outbox.png)
 Of course this add complexity. Messages will be retried in case of failure which can create duplication that needs to be handled by the consumers. Messages will also be out of order, meaning that is important to have mechanisms in place to ensure consistency, specially if order matters.
+First we need to add the tables to our database, by installing MassTransit.EF core package:
+
+```
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
+            base.OnModelCreating(modelBuilder);
+        }
+```

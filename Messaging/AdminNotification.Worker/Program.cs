@@ -1,5 +1,13 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Orders.Data;
+using Orders.Domain;
+using Orders.Service;
+using OrdersApi.Infrastructure.Mappings;
+using OrdersApi.Services;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -16,6 +24,11 @@ namespace AdminNotification.Worker
             Host.CreateDefaultBuilder(args)
                 .ConfigureServices((hostContext, services) =>
                 {
+                    services.AddAutoMapper(typeof(OrderProfileMapping));
+                    services.AddScoped<IOrderService, OrderService>();
+                    services.AddScoped<IOrderRepository, OrderRepository>();
+                    services.AddDbContext<OrderContext>(options =>
+                        options.UseSqlServer(hostContext.Configuration.GetConnectionString("DefaultConnection")));
                     services.AddMassTransit(x =>
                     {
                         x.SetKebabCaseEndpointNameFormatter();
