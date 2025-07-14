@@ -3,9 +3,9 @@
     public static class DbContextExtenstion
     {
 
-        public static void EnsureSeeded(this ProductContext context)
+        public static void EnsureSeeded(this ProductContext context, string dataPath, string categoryDataPath)
         {
-            DataSeeder.SeedData(context);
+            DataSeeder.SeedData(context, dataPath, categoryDataPath);
         }
 
     }

@@ -7,24 +7,23 @@ namespace ProductsApi.Data
 {
     public static class DataSeeder
     {
-        public static void SeedData(ProductContext _context)
+        public static void SeedData(ProductContext _context, string dataPath, string categoryDataPath)
         {
             if (!_context.Products.Any())
             {
-                _context.Products.AddRange(LoadProducts());
+                _context.Products.AddRange(LoadProducts(dataPath));
                 _context.SaveChanges();
             }
             if (!_context.Categories.Any())
             {
-                _context.Categories.AddRange(LoadCategories());
+                _context.Categories.AddRange(LoadCategories(categoryDataPath));
                 _context.SaveChanges();
             }
         }
 
-        private static List<Product> LoadProducts()
+        private static List<Product> LoadProducts(string dataPath)
         {
-            var jsonPath = @"C:\Coding projects\Microservices\Messaging\ProductsApi\data.json";
-            using (StreamReader file = File.OpenText(jsonPath))
+            using (StreamReader file = File.OpenText(dataPath))
             {
                 List<Product> products = new List<Product>();
                 string json = file.ReadToEnd();
@@ -42,10 +41,9 @@ namespace ProductsApi.Data
             }
         }
 
-        private static List<Category> LoadCategories()
+        private static List<Category> LoadCategories(string categoryDataPath)
         {
-            var jsonPath = @"C:\Coding projects\Microservices\Messaging\ProductsApi\category.json";
-            using (StreamReader file = File.OpenText(jsonPath))
+            using (StreamReader file = File.OpenText(categoryDataPath))
             {
                 List<Category> categories = new List<Category>();
                 string json = file.ReadToEnd();

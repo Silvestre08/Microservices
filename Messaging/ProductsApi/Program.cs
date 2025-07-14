@@ -189,7 +189,7 @@ namespace ProductsApi
                 using (var serviceScope = app.Services.GetRequiredService<IServiceScopeFactory>().CreateScope())
                 {
                     serviceScope.ServiceProvider.GetService<ProductContext>().Database.EnsureCreated();
-                    serviceScope.ServiceProvider.GetService<ProductContext>().EnsureSeeded();
+                    serviceScope.ServiceProvider.GetService<ProductContext>().EnsureSeeded(builder.Configuration["dataPath"], builder.Configuration["categoriesDataPath"]);
                 }
             }
 
