@@ -48,9 +48,10 @@ namespace OrdersApi.Controllers
         [HttpPost]
         public async Task<ActionResult<Order>> PostOrder(OrderModel model)
         {
-            var sednEndpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order-command"));
-            await sednEndpoint.Send(model);
-            await _publishEndpoint.Publish<Email>(new Email { Subject = "Email", Body = "Greetings" });
+            //var sednEndpoint = await _sendEndpointProvider.GetSendEndpoint(new Uri("queue:create-order-command"));
+            //await sednEndpoint.Send(model);
+            //await _publishEndpoint.Publish<Email>(new Email { Subject = "Email", Body = "Greetings" });
+            await _orderService.AcceptOrder(model);
             return Accepted();
         }
 

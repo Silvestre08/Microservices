@@ -8,6 +8,7 @@ using Orders.Domain;
 using Orders.Service;
 using OrdersApi.Infrastructure.Mappings;
 using OrdersApi.Services;
+using System;
 using System.Reflection;
 using System.Threading.Tasks;
 
@@ -32,7 +33,13 @@ namespace AdminNotification.Worker
                     services.AddMassTransit(x =>
                     {
                         x.SetKebabCaseEndpointNameFormatter();
-
+                        x.AddEntityFrameworkOutbox<OrderContext>( o => 
+                        {
+                            o.DuplicateDetectionWindow = TimeSpan.FromSeconds(30);
+                            o.QueryDelay = TimeSpan.FromSeconds(5);
+                            o.UseSqlServer();
+                            o.DisableInboxCleanupService();
+                        });
                         var entryAssembly = Assembly.GetEntryAssembly();
                         x.AddConsumers(entryAssembly);
 

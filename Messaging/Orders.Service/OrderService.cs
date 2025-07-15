@@ -53,6 +53,7 @@ namespace OrdersApi.Services
         {
             return await _orderRepository.OrderExistsAsync(id);
         }
+
         public async Task AcceptOrder(OrderModel model)
         {
 

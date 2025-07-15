@@ -46,25 +46,27 @@ namespace OrdersApi
             builder.Services.AddMassTransit(options =>
             {
                 options.SetKebabCaseEndpointNameFormatter();
-                //options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: true));
-                options.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter("hellos", includeNamespace: false));
-                //options.AddConsumer<OrderCreatedConsumer>();
-                options.AddConsumer<VerifyOrderConsumer>();
-                options.AddConsumer<OrderCreateFaultConsumer>();
+                //options.AddConsumer<VerifyOrderConsumer>();
+                //options.AddConsumer<OrderCreateFaultConsumer>();
+                //options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
                 options.AddRequestClient<VerifyOrder>();
-                options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+                options.AddEntityFrameworkOutbox<OrderContext>(o => 
+                {
+                    o.UseSqlServer();
+                    o.UseBusOutbox();
+                });
                 options.UsingRabbitMq((context, config) =>
                 {
-                    config.UseMessageRetry((r) => r.Immediate(2));
+                                        config.UseMessageRetry((r) => r.Immediate(2));
                     config.UseSendFilter(typeof(TenantSendFilter<>),context);
                     config.UsePublishFilter(typeof(TenantPublishFilter<>), context, x => x.Include<Email>());
                     config.UseConsumeFilter(typeof(TenantConsumeFilter<>), context);
                     config.UsePublishFilter<TenantPublishEmailFilter>(context);
-                    config.ReceiveEndpoint("order-created", 
-                        e => 
-                        { 
-                            e.ConfigureConsumer<OrderCreatedConsumer>(context);
-                        });
+                    //config.ReceiveEndpoint("order-created", 
+                    //    e => 
+                    //    { 
+                    //        e.ConfigureConsumer<OrderCreatedConsumer>(context);
+                    //    });
                     config.ConfigureEndpoints(context);
                 });
             });

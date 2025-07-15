@@ -947,3 +947,82 @@ First we need to add the tables to our database, by installing MassTransit.EF co
             base.OnModelCreating(modelBuilder);
         }
 ```
+
+Now to add to our api:
+```
+           builder.Services.AddMassTransit(options =>
+           {
+               options.SetKebabCaseEndpointNameFormatter();
+               //options.AddConsumer<VerifyOrderConsumer>();
+               //options.AddConsumer<OrderCreateFaultConsumer>();
+               //options.AddConsumer<OrderCreatedConsumer, OrderCreatedConsumerDefinition>();
+               options.AddRequestClient<VerifyOrder>();
+               options.AddEntityFrameworkOutbox<OrderContext>(o => 
+               {
+                   o.UseSqlServer();
+                   o.UseBusOutbox(x => x.DisableDeliveryService());
+               });
+           }
+```
+Notice that we informed mass transit to use the outbox and we specified the database context to be used.
+We modified our order controller to just accept an order. Inside our order service, this looks like this:
+ public async Task AcceptOrder(OrderModel model)
+ {
+
+     var domainObject = mapper.Map<Order>(model);
+
+
+     var savedOrder = await this.AddOrderAsync(domainObject);
+
+     var orderReceived = _publishEndpoint.Publish(new OrderReceived()
+     {
+         CreatedAt = savedOrder.OrderDate,
+         OrderId = savedOrder.OrderId
+     });
+
+     var notifyOrderCreated = _publishEndpoint.Publish(new OrderCreated()
+     {
+         CreatedAt = savedOrder.OrderDate,
+         OrderId = savedOrder.OrderId,
+         TotalAmount = domainObject.OrderItems.Sum(x => x.Price * x.Quantity)
+     });
+
+     try
+     {
+         await _orderRepository.SaveChangesAsync();
+     }
+     catch (DbUpdateException exception)
+     {
+
+     }
+
+ }
+
+ Because we disabled the delivery service we can go to sql server and inspect the outbox tables on our database. Messages are stored in sequence in the table. Otherwise the service would start publishing the outbox messages (we did it here to show the example). The key thing here is that _publishEndpoint.Publish now stores the messages in the outbox table and it does not publish it directly to the broker. The key aspect of the outbox pattern is that the message is stored together with the main transaction data. If one fails, everything fails. This is how distributed systems can keep consistency.
+
+### Consumer Outbox
+ There is also another pattern called consumer outbox. It is a combination of the inbox pattern and outbox pattern.
+ The inbox pattern is used to have exactly once delivery.
+ So on our admin notification worker we configure consumer outbox:
+ ```
+  services.AddMassTransit(x =>
+ {
+     x.SetKebabCaseEndpointNameFormatter();
+     x.AddEntityFrameworkOutbox<OrderContext>( o => 
+     {
+         o.DuplicateDetectionWindow = TimeSpan.FromSeconds(30);
+         o.QueryDelay = TimeSpan.FromSeconds(5);
+         o.UseSqlServer();
+         o.DisableInboxCleanupService();
+         o.UseBusOutbox(x => x.DisableDeliveryService());
+     });
+ }
+ ```
+ See the properties configured: allowing for duplicate message detection. Inbox table delivery cleanup etc.
+ We can attach an outbox per consumer endpoint.
+ By verifying the consumer receive contexts, the source of the messages is not rabbitmq anymore but indeed the database table. Basically what happens is that the messages will be stored in the inbox table. The outbox is used to store published and sent messages until the consumer completes successfully. Once completed, the stored messages are delivered to the broker after which the received message is acknowledged. The Consumer Outbox works with all consumer types, including Consumers, Sagas, and Routing Slip Activities:
+
+ ![](doc/Consumeroutbox.PNG)
+
+ So basically when receiving a message and, as a consequence of processing that message, more messages will be published, the inbox table keeps the messages until the messages in the outbox table have been dispatched.
+ 
