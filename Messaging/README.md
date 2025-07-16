@@ -1026,3 +1026,5 @@ We modified our order controller to just accept an order. Inside our order servi
 
  So basically when receiving a message and, as a consequence of processing that message, more messages will be published, the inbox table keeps the messages until the messages in the outbox table have been dispatched.
  
+ ## Sagas
+Sagas are mechanisms to coordinate or orchestrate changes in state across multiple services
