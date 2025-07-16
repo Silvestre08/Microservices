@@ -71,7 +71,7 @@ namespace OrdersApi.Services
             var notifyOrderCreated = _publishEndpoint.Publish(new OrderCreated()
             {
                 CreatedAt = savedOrder.OrderDate,
-                OrderId = savedOrder.OrderId,
+                OrderId = savedOrder.Id,
                 TotalAmount = domainObject.OrderItems.Sum(x => x.Price * x.Quantity)
             });
 

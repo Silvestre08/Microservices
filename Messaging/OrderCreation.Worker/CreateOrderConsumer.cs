@@ -44,7 +44,6 @@ namespace OrderCreation.Worker
                {
                    CreatedAt = createdOrder.OrderDate,
                    Id = createdOrder.Id,
-                   OrderId = createdOrder.OrderId,
                    TotalAmount = createdOrder.OrderItems.Sum(i => i.Quantity * i.Price)
                },
                context =>

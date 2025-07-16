@@ -39,6 +39,7 @@ namespace AdminNotification.Worker
                             o.QueryDelay = TimeSpan.FromSeconds(5);
                             o.UseSqlServer();
                             o.DisableInboxCleanupService();
+                            o.UseBusOutbox(x => x.DisableDeliveryService());
                         });
                         var entryAssembly = Assembly.GetEntryAssembly();
                         x.AddConsumers(entryAssembly);
